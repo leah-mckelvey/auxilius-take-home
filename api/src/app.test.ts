@@ -6,6 +6,7 @@ import type {
   CreateTaskRecord,
   TaskListItem,
   TaskRepository,
+  UpdateTaskRecord,
 } from './tasks/task-repository';
 
 const buildTaskRepository = (
@@ -21,6 +22,19 @@ const buildTaskRepository = (
     createdAt: '2026-03-10T00:00:00.000Z',
     updatedAt: '2026-03-10T00:00:00.000Z',
   })),
+  updateTask: vi
+    .fn()
+    .mockImplementation(async (taskId: string, updates: UpdateTaskRecord) => ({
+      id: taskId,
+      title: updates.title ?? 'Draft architecture',
+      description: Object.prototype.hasOwnProperty.call(updates, 'description')
+        ? (updates.description ?? null)
+        : null,
+      status: updates.status ?? 'todo',
+      createdBy: 'leah',
+      createdAt: '2026-03-10T00:00:00.000Z',
+      updatedAt: '2026-03-10T02:00:00.000Z',
+    })),
   ...overrides,
 });
 
@@ -153,15 +167,87 @@ describe('createApp', () => {
     });
   });
 
-  it('returns not implemented for updating tasks', async () => {
-    const app = createApp({ taskRepository: buildTaskRepository() });
-    const response = await request(app).patch('/tasks/task-123').send({
+  it('updates a task from a valid request payload', async () => {
+    const updateTask = vi.fn().mockResolvedValue({
+      id: 'task-123',
       title: 'Refine architecture',
+      description: null,
+      status: 'in_progress',
+      createdBy: 'leah',
+      createdAt: '2026-03-10T00:00:00.000Z',
+      updatedAt: '2026-03-10T02:00:00.000Z',
+    } satisfies TaskListItem);
+    const app = createApp({
+      taskRepository: buildTaskRepository({ updateTask }),
+    });
+    const response = await request(app).patch('/tasks/task-123').send({
+      title: '  Refine architecture  ',
+      description: null,
+      status: 'in_progress',
     });
 
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      message: 'Task endpoints are not implemented yet.',
+      id: 'task-123',
+      title: 'Refine architecture',
+      description: null,
+      status: 'in_progress',
+      createdBy: 'leah',
+      createdAt: '2026-03-10T00:00:00.000Z',
+      updatedAt: '2026-03-10T02:00:00.000Z',
+    });
+    expect(updateTask).toHaveBeenCalledWith('task-123', {
+      title: 'Refine architecture',
+      description: null,
+      status: 'in_progress',
+    });
+  });
+
+  it('rejects an invalid update-task payload', async () => {
+    const updateTask = vi.fn();
+    const app = createApp({
+      taskRepository: buildTaskRepository({ updateTask }),
+    });
+    const response = await request(app).patch('/tasks/task-123').send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: 'At least one of title, description, or status is required.',
+    });
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
+  it('returns not found when updating a missing task', async () => {
+    const app = createApp({
+      taskRepository: buildTaskRepository({
+        updateTask: vi.fn().mockResolvedValue(null),
+      }),
+    });
+    const response = await request(app).patch('/tasks/task-123').send({
+      status: 'done',
+    });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      message: 'Task not found.',
+    });
+  });
+
+  it('returns an internal server error when updating a task fails', async () => {
+    const app = createApp({
+      taskRepository: buildTaskRepository({
+        updateTask: vi
+          .fn()
+          .mockRejectedValue(new Error('database unavailable')),
+      }),
+    });
+    const response = await request(app).patch('/tasks/task-123').send({
+      status: 'done',
+    });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Failed to update task.',
     });
   });
 

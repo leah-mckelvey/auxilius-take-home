@@ -21,6 +21,12 @@ export interface CreateTaskRecord {
   createdBy: string;
 }
 
+export interface UpdateTaskRecord {
+  title?: string;
+  description?: string | null;
+  status?: TaskStatus;
+}
+
 interface TaskRow {
   id: string;
   title: string;
@@ -34,6 +40,10 @@ interface TaskRow {
 export interface TaskRepository {
   listTasks(): Promise<TaskListItem[]>;
   createTask(task: CreateTaskRecord): Promise<TaskListItem>;
+  updateTask(
+    taskId: string,
+    updates: UpdateTaskRecord,
+  ): Promise<TaskListItem | null>;
 }
 
 export const listTasksQuery = `
@@ -47,6 +57,45 @@ export const createTaskQuery = `
   VALUES ($1, $2, $3, $4, $5)
   RETURNING id, title, description, status, created_by, created_at, updated_at;
 `;
+
+export const buildUpdateTaskQuery = (
+  taskId: string,
+  updates: UpdateTaskRecord,
+) => {
+  const assignments: string[] = [];
+  const values: unknown[] = [];
+
+  if (updates.title !== undefined) {
+    values.push(updates.title);
+    assignments.push(`title = $${values.length}`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'description')) {
+    values.push(updates.description);
+    assignments.push(`description = $${values.length}`);
+  }
+
+  if (updates.status !== undefined) {
+    values.push(updates.status);
+    assignments.push(`status = $${values.length}`);
+  }
+
+  if (assignments.length === 0) {
+    throw new Error('No task fields to update.');
+  }
+
+  values.push(taskId);
+
+  return {
+    text: `
+      UPDATE tasks
+      SET ${assignments.join(', ')}, updated_at = NOW()
+      WHERE id = $${values.length}
+      RETURNING id, title, description, status, created_by, created_at, updated_at;
+    `,
+    values,
+  };
+};
 
 export const mapTaskRow = (row: TaskRow): TaskListItem => ({
   id: row.id,
@@ -81,5 +130,15 @@ export const createPostgresTaskRepository = (
     }
 
     return mapTaskRow(row);
+  },
+  async updateTask(taskId, updates) {
+    const query = buildUpdateTaskQuery(taskId, updates);
+    const result = await databaseClient.query<TaskRow>(
+      query.text,
+      query.values,
+    );
+    const [row] = result.rows;
+
+    return row === undefined ? null : mapTaskRow(row);
   },
 });
