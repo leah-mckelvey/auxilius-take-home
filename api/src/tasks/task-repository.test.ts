@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DatabaseClient } from '../db/client';
 import {
+  createTaskQuery,
   createPostgresTaskRepository,
   listTasksQuery,
   mapTaskRow,
@@ -95,5 +96,68 @@ describe('createPostgresTaskRepository', () => {
         updatedAt: '2026-03-10T05:30:00.000Z',
       },
     ]);
+  });
+
+  it('inserts a task and maps the returned row', async () => {
+    const databaseClient: DatabaseClient = {
+      query: vi.fn().mockResolvedValue({
+        rows: [
+          {
+            id: 'task-123',
+            title: 'Draft architecture',
+            description: null,
+            status: 'todo',
+            created_by: 'leah',
+            created_at: '2026-03-10T00:00:00.000Z',
+            updated_at: '2026-03-10T00:00:00.000Z',
+          },
+        ],
+      }),
+    };
+
+    const repository = createPostgresTaskRepository(databaseClient);
+
+    await expect(
+      repository.createTask({
+        id: 'task-123',
+        title: 'Draft architecture',
+        description: null,
+        status: 'todo',
+        createdBy: 'leah',
+      }),
+    ).resolves.toEqual({
+      id: 'task-123',
+      title: 'Draft architecture',
+      description: null,
+      status: 'todo',
+      createdBy: 'leah',
+      createdAt: '2026-03-10T00:00:00.000Z',
+      updatedAt: '2026-03-10T00:00:00.000Z',
+    });
+    expect(databaseClient.query).toHaveBeenCalledWith(createTaskQuery, [
+      'task-123',
+      'Draft architecture',
+      null,
+      'todo',
+      'leah',
+    ]);
+  });
+
+  it('throws when the insert does not return a row', async () => {
+    const databaseClient: DatabaseClient = {
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+    };
+
+    const repository = createPostgresTaskRepository(databaseClient);
+
+    await expect(
+      repository.createTask({
+        id: 'task-123',
+        title: 'Draft architecture',
+        description: null,
+        status: 'todo',
+        createdBy: 'leah',
+      }),
+    ).rejects.toThrow('Failed to create task.');
   });
 });

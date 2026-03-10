@@ -31,12 +31,12 @@ describe('createDatabaseClient', () => {
 
     const databaseClient = createDatabaseClient();
 
-    await databaseClient.query('SELECT 1');
+    await databaseClient.query('SELECT $1', [1]);
 
     expect(createRequireMock).toHaveBeenCalledTimes(1);
     expect(requireMock).toHaveBeenCalledWith('pg');
     expect(PoolMock).toHaveBeenCalledWith(undefined);
-    expect(poolQueryMock).toHaveBeenCalledWith('SELECT 1');
+    expect(poolQueryMock).toHaveBeenCalledWith('SELECT $1', [1]);
   });
 
   it('creates a pool with DATABASE_URL when it is set', async () => {

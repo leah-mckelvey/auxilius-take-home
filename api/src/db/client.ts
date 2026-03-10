@@ -5,7 +5,10 @@ interface QueryResult<ResultRow = unknown> {
 }
 
 interface PostgresPool {
-  query<ResultRow>(text: string): Promise<QueryResult<ResultRow>>;
+  query<ResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<QueryResult<ResultRow>>;
 }
 
 const require = createRequire(import.meta.url);
@@ -14,7 +17,10 @@ const { Pool } = require('pg') as {
 };
 
 export interface DatabaseClient {
-  query<ResultRow>(text: string): Promise<QueryResult<ResultRow>>;
+  query<ResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<QueryResult<ResultRow>>;
 }
 
 export const createDatabaseClient = (): DatabaseClient => {
@@ -24,6 +30,6 @@ export const createDatabaseClient = (): DatabaseClient => {
   );
 
   return {
-    query: (text) => pool.query(text),
+    query: (text, values) => pool.query(text, values),
   };
 };

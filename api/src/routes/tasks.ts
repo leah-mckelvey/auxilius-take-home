@@ -1,5 +1,11 @@
+import { randomUUID } from 'node:crypto';
+
 import { Router, type RequestHandler } from 'express';
 
+import {
+  parseCreateTaskInput,
+  toCreateTaskRecord,
+} from '../tasks/create-task-input';
 import type { TaskRepository } from '../tasks/task-repository';
 
 interface CreateTasksRouterOptions {
@@ -8,6 +14,7 @@ interface CreateTasksRouterOptions {
 
 const notImplementedMessage = 'Task endpoints are not implemented yet.';
 const listTasksErrorMessage = 'Failed to load tasks.';
+const createTaskErrorMessage = 'Failed to create task.';
 
 export const createTasksRouter = ({
   taskRepository,
@@ -24,11 +31,30 @@ export const createTasksRouter = ({
     }
   });
 
+  tasksRouter.post('/', async (request, response) => {
+    const parseResult = parseCreateTaskInput(request.body);
+
+    if (!parseResult.success) {
+      response.status(400).json({ message: parseResult.message });
+
+      return;
+    }
+
+    try {
+      const task = await taskRepository.createTask(
+        toCreateTaskRecord(parseResult.data, randomUUID()),
+      );
+
+      response.status(201).json(task);
+    } catch {
+      response.status(500).json({ message: createTaskErrorMessage });
+    }
+  });
+
   const respondNotImplemented: RequestHandler = (_request, response) => {
     response.status(501).json({ message: notImplementedMessage });
   };
 
-  tasksRouter.post('/', respondNotImplemented);
   tasksRouter.patch('/:taskId', respondNotImplemented);
   tasksRouter.delete('/:taskId', respondNotImplemented);
 
