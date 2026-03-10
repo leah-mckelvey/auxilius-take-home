@@ -1,14 +1,26 @@
 import express from 'express';
 
+import { createDatabaseClient } from './db/client';
 import { healthRouter } from './routes/health';
-import { tasksRouter } from './routes/tasks';
+import { createTasksRouter } from './routes/tasks';
+import {
+  createPostgresTaskRepository,
+  type TaskRepository,
+} from './tasks/task-repository';
 
-export const createApp = () => {
+interface CreateAppOptions {
+  taskRepository?: TaskRepository;
+}
+
+export const createApp = (options: CreateAppOptions = {}) => {
   const app = express();
+  const taskRepository =
+    options.taskRepository ??
+    createPostgresTaskRepository(createDatabaseClient());
 
   app.use(express.json());
   app.use('/health', healthRouter);
-  app.use('/tasks', tasksRouter);
+  app.use('/tasks', createTasksRouter({ taskRepository }));
 
   return app;
 };
