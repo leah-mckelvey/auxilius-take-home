@@ -18,8 +18,8 @@ interface TaskRow {
   description: string | null;
   status: TaskStatus;
   created_by: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TaskRepository {
@@ -38,8 +38,8 @@ export const mapTaskRow = (row: TaskRow): TaskListItem => ({
   description: row.description,
   status: row.status,
   createdBy: row.created_by,
-  createdAt: row.created_at.toISOString(),
-  updatedAt: row.updated_at.toISOString(),
+  createdAt: new Date(row.created_at).toISOString(),
+  updatedAt: new Date(row.updated_at).toISOString(),
 });
 
 export const createPostgresTaskRepository = (

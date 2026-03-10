@@ -1,4 +1,17 @@
-import { Pool, type QueryResult } from 'pg';
+import { createRequire } from 'node:module';
+
+interface QueryResult<ResultRow = unknown> {
+  rows: ResultRow[];
+}
+
+interface PostgresPool {
+  query<ResultRow>(text: string): Promise<QueryResult<ResultRow>>;
+}
+
+const require = createRequire(import.meta.url);
+const { Pool } = require('pg') as {
+  Pool: new (config?: { connectionString?: string }) => PostgresPool;
+};
 
 export interface DatabaseClient {
   query<ResultRow>(text: string): Promise<QueryResult<ResultRow>>;
