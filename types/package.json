@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --project tsconfig.json --noEmit"
   }
 }
