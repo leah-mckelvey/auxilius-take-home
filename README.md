@@ -5,21 +5,25 @@ A collaborative task board where multiple users can create, update, and delete t
 ## Quick Start
 
 ### Prerequisites
+
 - Docker
 - Docker Compose
 
 ### Run the application
+
 1. Copy environment variables: `cp .env.example .env`
 2. Start the full stack: `docker compose up --build`
 3. Open the frontend in your browser at `http://localhost:5173`
 4. Enter a username on first visit to begin using the board
 
 ### Verify real-time sync
+
 1. Open the app in two browser tabs or windows
 2. Create, edit, move, or delete a task in one tab
 3. Confirm the other tab updates immediately without refreshing
 
 ## Features Implemented
+
 - Username-only login stored in browser `localStorage`
 - Create tasks with title, optional description, and status
 - Update task details and status
@@ -34,17 +38,20 @@ A collaborative task board where multiple users can create, update, and delete t
 ## Tech Stack
 
 ### Frontend
+
 - **React + TypeScript** for fast iteration, strong component composition, and good TypeScript support
 - **Vite** for simple setup and fast local development
 - **Socket.IO client** to receive real-time task updates from the server
 - **`ts-query`** as a lightweight frontend query/cache layer for fetching, mutation state, and cache updates
 
 ### Backend
+
 - **Express + TypeScript** for a lightweight API server and single-language stack
 - **Socket.IO** to broadcast task changes after successful writes
 - **Zod** for runtime validation of API request payloads
 
 ### Database / Tooling / Infra
+
 - **PostgreSQL** as the source of truth for task data
 - **Vitest** for unit tests in frontend and backend code
 - **ESLint** for code quality and consistency
@@ -53,6 +60,7 @@ A collaborative task board where multiple users can create, update, and delete t
 - **Docker Compose** to run the frontend, backend, and database together
 
 ## Architecture Overview
+
 - The **React frontend** renders the task board UI, performs CRUD operations through the REST API, and subscribes to live updates through Socket.IO.
 - The **Express backend** exposes the required task endpoints, validates input, persists changes to PostgreSQL, and broadcasts task events after successful database writes.
 - **PostgreSQL** is the single source of truth for task data.
@@ -61,6 +69,7 @@ A collaborative task board where multiple users can create, update, and delete t
 - Real-time behavior uses **REST for writes** and **Socket.IO for fanout** so persistence logic stays centralized.
 
 ### Architecture Diagram
+
 ```mermaid
 flowchart LR
   A[React + TypeScript] -->|REST| B[Express API]
@@ -70,6 +79,7 @@ flowchart LR
 ```
 
 ### Real-Time Update Flow
+
 1. A user creates, edits, or deletes a task from the frontend
 2. The frontend sends a REST request to the API
 3. The API validates the request and writes the change to PostgreSQL
@@ -79,6 +89,7 @@ flowchart LR
 This design prioritizes correctness and simplicity over more advanced collaboration behavior such as conflict resolution or optimistic concurrency.
 
 ## Project Structure
+
 - `web/` — React frontend
 - `api/` — Express backend
 - `types/` — shared TypeScript contracts for API and socket payloads
@@ -87,6 +98,7 @@ This design prioritizes correctness and simplicity over more advanced collaborat
 - `.env.example` — required environment variables
 
 ## API Endpoints
+
 - `GET /tasks`
 - `POST /tasks`
 - `PATCH /tasks/:id`
@@ -97,6 +109,7 @@ These endpoints handle task CRUD, while Socket.IO notifies connected clients abo
 ## Database Schema
 
 ### `tasks`
+
 - `id` — UUID primary key
 - `title` — required text
 - `description` — nullable text
@@ -106,16 +119,19 @@ These endpoints handle task CRUD, while Socket.IO notifies connected clients abo
 - `updated_at` — last update timestamp
 
 ### Schema Design Choices
+
 - A single `tasks` table keeps the data model small and easy to reason about
 - `status` is constrained to the three board states required by the assignment
 - Timestamps make task updates easier to inspect and debug
 - `created_by` preserves lightweight authorship without introducing a full users table
 
 ### Indexes / Optimizations
+
 - Primary key index on `id`
 - No additional indexes were added initially because the expected dataset is small and the main read pattern is loading the board as a whole
 
 ## Authentication Approach
+
 - On first visit, the user chooses a username
 - The username is stored in `localStorage`
 - The frontend reuses that username for future visits
@@ -124,9 +140,11 @@ These endpoints handle task CRUD, while Socket.IO notifies connected clients abo
 This is not production-grade authentication and is a deliberate trade-off to keep the implementation focused on the core requirements.
 
 ## Shared Types Strategy
+
 A small shared `types/` folder is used to keep frontend and backend request, response, and socket event contracts aligned. This is intentionally limited to **contracts**, not shared business logic. Runtime validation remains on the backend so compile-time types do not replace API boundary protection.
 
 ## Testing and Code Quality
+
 - Type-checking with `tsc --noEmit`
 - Linting with ESLint
 - Formatting with Prettier
@@ -134,6 +152,7 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - Small, reviewable commits intended to keep each change understandable in isolation
 
 ## Approximate Time Log
+
 - Project setup, TypeScript, ESLint, Prettier, test scaffolding — 0.5h
 - Docker Compose and PostgreSQL schema setup — 0.4h
 - Backend API, validation, and persistence — 0.6h
@@ -142,6 +161,7 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - Tests, cleanup, and documentation — 0.3h
 
 ## Key Technical Decisions and Trade-Offs
+
 - **React + Express + TypeScript:** a single-language stack keeps the project easier to build, reason about, and review
 - **REST for writes, Socket.IO for updates:** avoids splitting business logic across two transport layers
 - **PostgreSQL as the source of truth:** no backend cache because the dataset is small and real-time consistency matters more
@@ -151,6 +171,7 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - **Minimal schema:** keeps focus on working collaboration behavior rather than overengineering
 
 ## Known Limitations
+
 - No password-based or secure authentication
 - No user presence indicators
 - No edit conflict detection
@@ -161,6 +182,7 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - Test coverage is focused on core logic and touched UI paths rather than full end-to-end coverage
 
 ## What I Would Improve With More Time
+
 - Add end-to-end tests covering real-time behavior across multiple browser sessions
 - Improve accessibility and keyboard interactions
 - Add optimistic UI updates with reconciliation
@@ -171,6 +193,7 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - Expand API contract sharing where it adds value while keeping runtime validation authoritative
 
 ## Notes for Reviewers
+
 - The project is designed to be run locally with Docker Compose
 - The implementation intentionally prioritizes working real-time collaboration, clear boundaries, and maintainable code over advanced features
 - Commit history is intentionally kept small and reviewable to show the construction of the application in discrete steps
