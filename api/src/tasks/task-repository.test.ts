@@ -5,6 +5,7 @@ import {
   buildUpdateTaskQuery,
   createTaskQuery,
   createPostgresTaskRepository,
+  deleteTaskQuery,
   listTasksQuery,
   mapTaskRow,
 } from './task-repository';
@@ -237,5 +238,28 @@ describe('createPostgresTaskRepository', () => {
     await expect(
       repository.updateTask('task-123', { status: 'done' }),
     ).resolves.toBeNull();
+  });
+
+  it('deletes an existing task', async () => {
+    const databaseClient: DatabaseClient = {
+      query: vi.fn().mockResolvedValue({ rows: [{ id: 'task-123' }] }),
+    };
+
+    const repository = createPostgresTaskRepository(databaseClient);
+
+    await expect(repository.deleteTask('task-123')).resolves.toBe(true);
+    expect(databaseClient.query).toHaveBeenCalledWith(deleteTaskQuery, [
+      'task-123',
+    ]);
+  });
+
+  it('returns false when deleting a missing task', async () => {
+    const databaseClient: DatabaseClient = {
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+    };
+
+    const repository = createPostgresTaskRepository(databaseClient);
+
+    await expect(repository.deleteTask('task-123')).resolves.toBe(false);
   });
 });

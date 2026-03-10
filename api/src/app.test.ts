@@ -35,6 +35,7 @@ const buildTaskRepository = (
       createdAt: '2026-03-10T00:00:00.000Z',
       updatedAt: '2026-03-10T02:00:00.000Z',
     })),
+  deleteTask: vi.fn().mockResolvedValue(true),
   ...overrides,
 });
 
@@ -251,13 +252,45 @@ describe('createApp', () => {
     });
   });
 
-  it('returns not implemented for deleting tasks', async () => {
-    const app = createApp({ taskRepository: buildTaskRepository() });
+  it('deletes an existing task', async () => {
+    const deleteTask = vi.fn().mockResolvedValue(true);
+    const app = createApp({
+      taskRepository: buildTaskRepository({ deleteTask }),
+    });
     const response = await request(app).delete('/tasks/task-123');
 
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(204);
+    expect(response.text).toBe('');
+    expect(deleteTask).toHaveBeenCalledWith('task-123');
+  });
+
+  it('returns not found when deleting a missing task', async () => {
+    const app = createApp({
+      taskRepository: buildTaskRepository({
+        deleteTask: vi.fn().mockResolvedValue(false),
+      }),
+    });
+    const response = await request(app).delete('/tasks/task-123');
+
+    expect(response.status).toBe(404);
     expect(response.body).toEqual({
-      message: 'Task endpoints are not implemented yet.',
+      message: 'Task not found.',
+    });
+  });
+
+  it('returns an internal server error when deleting a task fails', async () => {
+    const app = createApp({
+      taskRepository: buildTaskRepository({
+        deleteTask: vi
+          .fn()
+          .mockRejectedValue(new Error('database unavailable')),
+      }),
+    });
+    const response = await request(app).delete('/tasks/task-123');
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Failed to delete task.',
     });
   });
 });

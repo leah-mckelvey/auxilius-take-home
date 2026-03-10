@@ -44,6 +44,7 @@ export interface TaskRepository {
     taskId: string,
     updates: UpdateTaskRecord,
   ): Promise<TaskListItem | null>;
+  deleteTask(taskId: string): Promise<boolean>;
 }
 
 export const listTasksQuery = `
@@ -56,6 +57,12 @@ export const createTaskQuery = `
   INSERT INTO tasks (id, title, description, status, created_by)
   VALUES ($1, $2, $3, $4, $5)
   RETURNING id, title, description, status, created_by, created_at, updated_at;
+`;
+
+export const deleteTaskQuery = `
+  DELETE FROM tasks
+  WHERE id = $1
+  RETURNING id;
 `;
 
 export const buildUpdateTaskQuery = (
@@ -140,5 +147,12 @@ export const createPostgresTaskRepository = (
     const [row] = result.rows;
 
     return row === undefined ? null : mapTaskRow(row);
+  },
+  async deleteTask(taskId) {
+    const result = await databaseClient.query<{ id: string }>(deleteTaskQuery, [
+      taskId,
+    ]);
+
+    return result.rows.length > 0;
   },
 });
