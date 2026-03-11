@@ -1,4 +1,8 @@
-import { TASKS_CHANGED_EVENT, type Task, type TaskChangeEvent } from '@auxilius-take-home/types';
+import {
+  TASKS_CHANGED_EVENT,
+  type Task,
+  type TaskChangeEvent,
+} from '@auxilius-take-home/types';
 import { QueryClientProvider } from '@ts-query/react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -8,18 +12,36 @@ import { App } from './App';
 import { usernameStorageKey } from './auth/username-storage';
 import { createAppQueryClient } from './query-client';
 
-const { ioMock, socketMock } = vi.hoisted(() => {
-  const socket = {
-    on: vi.fn((_: string, __: unknown) => socket),
-    off: vi.fn((_: string, __: unknown) => socket),
-    disconnect: vi.fn(),
-  };
+interface MockSocket {
+  on: (eventName: string, handler: unknown) => MockSocket;
+  off: (eventName: string, handler: unknown) => MockSocket;
+  disconnect: () => void;
+}
 
-  return {
-    ioMock: vi.fn(() => socket),
-    socketMock: socket,
-  };
-});
+const { disconnectMock, ioMock, offMock, onMock, socketMock } = vi.hoisted(
+  () => {
+    const onMock = vi.fn<MockSocket['on']>();
+    const offMock = vi.fn<MockSocket['off']>();
+    const disconnectMock = vi.fn<MockSocket['disconnect']>();
+
+    const socket: MockSocket = {
+      on: onMock,
+      off: offMock,
+      disconnect: disconnectMock,
+    };
+
+    onMock.mockImplementation(() => socket);
+    offMock.mockImplementation(() => socket);
+
+    return {
+      disconnectMock,
+      ioMock: vi.fn(() => socket),
+      offMock,
+      onMock,
+      socketMock: socket,
+    };
+  },
+);
 
 vi.mock('socket.io-client', () => ({ io: ioMock }));
 
@@ -57,19 +79,19 @@ describe('App integration', () => {
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
     ioMock.mockClear();
-    socketMock.on.mockReset();
-    socketMock.off.mockReset();
-    socketMock.disconnect.mockReset();
+    onMock.mockReset();
+    offMock.mockReset();
+    disconnectMock.mockReset();
     realtimeHandler = undefined;
 
-    socketMock.on.mockImplementation((eventName: string, handler: unknown) => {
+    onMock.mockImplementation((eventName: string, handler: unknown) => {
       if (eventName === TASKS_CHANGED_EVENT) {
         realtimeHandler = handler as (event: TaskChangeEvent) => void;
       }
 
       return socketMock;
     });
-    socketMock.off.mockImplementation(() => socketMock);
+    offMock.mockImplementation(() => socketMock);
   });
 
   it('logs in, loads tasks, applies realtime updates, and creates a task', async () => {
@@ -112,11 +134,15 @@ describe('App integration', () => {
     );
 
     if (realtimeHandler === undefined) {
-      throw new Error('Expected the task board to register a realtime handler.');
+      throw new Error(
+        'Expected the task board to register a realtime handler.',
+      );
     }
 
+    const handleRealtime = realtimeHandler;
+
     act(() => {
-      realtimeHandler({ type: 'created', task: remoteTask });
+      handleRealtime({ type: 'created', task: remoteTask });
     });
 
     expect(
@@ -145,7 +171,9 @@ describe('App integration', () => {
         name: `Task ${createdTask.title}`,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText(`Created by ${createdTask.createdBy}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Created by ${createdTask.createdBy}`),
+    ).toBeInTheDocument();
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
@@ -164,6 +192,6 @@ describe('App integration', () => {
 
     unmount();
 
-    expect(socketMock.disconnect).toHaveBeenCalledTimes(1);
+    expect(disconnectMock).toHaveBeenCalledTimes(1);
   });
 });
