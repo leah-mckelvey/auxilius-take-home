@@ -112,7 +112,7 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('creates a task and refreshes the board via query invalidation', async () => {
+  it('creates a task and applies the returned task without refetching', async () => {
     globalThis.localStorage.setItem('auxilius.username', 'leah');
     fetchMock
       .mockResolvedValueOnce(buildJsonResponse([]))
@@ -120,9 +120,6 @@ describe('App', () => {
         buildJsonResponse(buildTask({ id: 'task-999', title: 'Ship board' }), {
           status: 201,
         }),
-      )
-      .mockResolvedValueOnce(
-        buildJsonResponse([buildTask({ id: 'task-999', title: 'Ship board' })]),
       );
     const user = userEvent.setup();
 
@@ -148,6 +145,7 @@ describe('App', () => {
       status: 'done',
       createdBy: 'leah',
     });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('updates and deletes a task through the REST mutations', async () => {
@@ -159,13 +157,7 @@ describe('App', () => {
           buildTask({ title: 'Refined architecture', status: 'done' }),
         ),
       )
-      .mockResolvedValueOnce(
-        buildJsonResponse([
-          buildTask({ title: 'Refined architecture', status: 'done' }),
-        ]),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-      .mockResolvedValueOnce(buildJsonResponse([]));
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const user = userEvent.setup();
 
     renderApp();
@@ -207,17 +199,14 @@ describe('App', () => {
         screen.queryByDisplayValue('Refined architecture'),
       ).not.toBeInTheDocument();
     });
-    expect(fetchMock.mock.calls[3]?.[0]).toBe('/tasks/task-123');
-    expect((fetchMock.mock.calls[3]?.[1] as RequestInit).method).toBe('DELETE');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/tasks/task-123');
+    expect((fetchMock.mock.calls[2]?.[1] as RequestInit).method).toBe('DELETE');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it('refetches tasks on websocket callbacks and cleans up the socket subscription', async () => {
+  it('applies websocket task deltas without refetching and cleans up the socket subscription', async () => {
     globalThis.localStorage.setItem('auxilius.username', 'leah');
-    fetchMock
-      .mockResolvedValueOnce(buildJsonResponse([buildTask()]))
-      .mockResolvedValueOnce(
-        buildJsonResponse([buildTask({ title: 'Updated elsewhere' })]),
-      );
+    fetchMock.mockResolvedValueOnce(buildJsonResponse([buildTask()]));
 
     const rendered = renderApp();
     await screen.findByDisplayValue('Draft architecture');
@@ -227,7 +216,10 @@ describe('App', () => {
     )?.[1] as ((event: TaskChangeEvent) => void) | undefined;
 
     expect(socketHandler).toBeDefined();
-    socketHandler?.({ type: 'updated', taskId: 'task-123' });
+    socketHandler?.({
+      type: 'updated',
+      task: buildTask({ title: 'Updated elsewhere' }),
+    });
 
     expect(
       await screen.findByDisplayValue('Updated elsewhere'),
@@ -235,6 +227,28 @@ describe('App', () => {
     expect(
       await screen.findByText('Real-time sync received: task updated.'),
     ).toBeInTheDocument();
+
+    socketHandler?.({
+      type: 'created',
+      task: buildTask({
+        id: 'task-999',
+        title: 'Created elsewhere',
+        status: 'done',
+      }),
+    });
+
+    expect(
+      await screen.findByDisplayValue('Created elsewhere'),
+    ).toBeInTheDocument();
+
+    socketHandler?.({ type: 'deleted', taskId: 'task-123' });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByDisplayValue('Updated elsewhere'),
+      ).not.toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     rendered.unmount();
 

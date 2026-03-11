@@ -57,7 +57,7 @@ export const createTasksRouter = ({
 
       publishTaskEventInBackground(publishTaskEvent, {
         type: 'created',
-        taskId: task.id,
+        task,
       });
 
       response.status(201).json(task);
@@ -89,7 +89,7 @@ export const createTasksRouter = ({
 
       publishTaskEventInBackground(publishTaskEvent, {
         type: 'updated',
-        taskId: task.id,
+        task,
       });
 
       response.status(200).json(task);

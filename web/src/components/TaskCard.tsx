@@ -5,15 +5,10 @@ import {
   type TaskStatus,
   type UpdateTaskInput,
 } from '@auxilius-take-home/types';
-import { useMutation, useQueryClient } from '@ts-query/react';
+import { useMutation } from '@ts-query/react';
 import { Box, Button, Stack, Text } from '@ts-query/ui-react';
 
-import {
-  deleteTask,
-  TASKS_QUERY_KEY,
-  updateTask,
-  type UpdateTaskRequest,
-} from '../api/tasks';
+import { deleteTask, updateTask, type UpdateTaskRequest } from '../api/tasks';
 import { inputStyle, panelStyle } from './task-board-styles';
 import { renderTaskStatusOptions } from './task-status-options';
 
@@ -26,10 +21,16 @@ const normalizeUpdateDescription = (value: string): string | null => {
 interface TaskCardProps {
   task: Task;
   onFeedback: (message: string) => void;
+  onTaskUpdated: (task: Task) => void;
+  onTaskDeleted: (taskId: string) => void;
 }
 
-export const TaskCard = ({ task, onFeedback }: TaskCardProps) => {
-  const queryClient = useQueryClient();
+export const TaskCard = ({
+  task,
+  onFeedback,
+  onTaskUpdated,
+  onTaskDeleted,
+}: TaskCardProps) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? '');
   const [status, setStatus] = useState<TaskStatus>(task.status);
@@ -42,9 +43,9 @@ export const TaskCard = ({ task, onFeedback }: TaskCardProps) => {
 
   const updateTaskMutation = useMutation<Task, UpdateTaskRequest, Error>({
     mutationFn: updateTask,
-    onSuccess: () => {
+    onSuccess: (updatedTask) => {
       onFeedback('Task updated.');
-      queryClient.invalidateQueries(TASKS_QUERY_KEY);
+      onTaskUpdated(updatedTask);
     },
     onError: (error) => {
       onFeedback(error.message);
@@ -52,9 +53,9 @@ export const TaskCard = ({ task, onFeedback }: TaskCardProps) => {
   });
   const deleteTaskMutation = useMutation<void, string, Error>({
     mutationFn: deleteTask,
-    onSuccess: () => {
+    onSuccess: (_data, taskId) => {
       onFeedback('Task deleted.');
-      queryClient.invalidateQueries(TASKS_QUERY_KEY);
+      onTaskDeleted(taskId);
     },
     onError: (error) => {
       onFeedback(error.message);

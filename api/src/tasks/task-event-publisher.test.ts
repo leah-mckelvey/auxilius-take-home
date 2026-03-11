@@ -13,7 +13,15 @@ describe('publishTaskEventInBackground', () => {
 
     publishTaskEventInBackground(publishTaskEvent, {
       type: 'created',
-      taskId: 'task-123',
+      task: {
+        id: 'task-123',
+        title: 'Draft architecture',
+        description: null,
+        status: 'todo',
+        createdBy: 'leah',
+        createdAt: '2026-03-10T00:00:00.000Z',
+        updatedAt: '2026-03-10T00:00:00.000Z',
+      },
     });
 
     expect(publishTaskEvent).not.toHaveBeenCalled();
@@ -22,7 +30,15 @@ describe('publishTaskEventInBackground', () => {
 
     expect(publishTaskEvent).toHaveBeenCalledWith({
       type: 'created',
-      taskId: 'task-123',
+      task: {
+        id: 'task-123',
+        title: 'Draft architecture',
+        description: null,
+        status: 'todo',
+        createdBy: 'leah',
+        createdAt: '2026-03-10T00:00:00.000Z',
+        updatedAt: '2026-03-10T00:00:00.000Z',
+      },
     });
   });
 

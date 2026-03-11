@@ -6,7 +6,7 @@ import {
   type TaskChangeEvent,
   type TaskStatus,
 } from '@auxilius-take-home/types';
-import { useQuery, useQueryClient } from '@ts-query/react';
+import { useQuery } from '@ts-query/react';
 import { Box, Heading, Stack, Text } from '@ts-query/ui-react';
 import { io } from 'socket.io-client';
 
@@ -24,24 +24,91 @@ const boardColumns: ReadonlyArray<{ title: string; status: TaskStatus }> = [
 const toFeedbackMessage = (event: TaskChangeEvent) =>
   `Real-time sync received: task ${event.type}.`;
 
+interface TaskDeltaState {
+  deletedTaskIds: Record<string, true>;
+  upsertedTasks: Record<string, Task>;
+}
+
+const emptyTaskDeltaState = (): TaskDeltaState => ({
+  deletedTaskIds: {},
+  upsertedTasks: {},
+});
+
+const applyTaskChange = (
+  taskDeltaState: TaskDeltaState,
+  event: TaskChangeEvent,
+): TaskDeltaState => {
+  switch (event.type) {
+    case 'created':
+    case 'updated': {
+      const remainingDeletedTaskIds = { ...taskDeltaState.deletedTaskIds };
+
+      delete remainingDeletedTaskIds[event.task.id];
+
+      return {
+        deletedTaskIds: remainingDeletedTaskIds,
+        upsertedTasks: {
+          ...taskDeltaState.upsertedTasks,
+          [event.task.id]: event.task,
+        },
+      };
+    }
+    case 'deleted': {
+      const remainingUpsertedTasks = { ...taskDeltaState.upsertedTasks };
+
+      delete remainingUpsertedTasks[event.taskId];
+
+      return {
+        deletedTaskIds: {
+          ...taskDeltaState.deletedTaskIds,
+          [event.taskId]: true,
+        },
+        upsertedTasks: remainingUpsertedTasks,
+      };
+    }
+  }
+};
+
+const mergeTasks = (
+  baseTasks: Task[],
+  taskDeltaState: TaskDeltaState,
+): Task[] => {
+  const mergedBaseTasks = baseTasks
+    .filter((task) => taskDeltaState.deletedTaskIds[task.id] !== true)
+    .map((task) => taskDeltaState.upsertedTasks[task.id] ?? task);
+  const mergedBaseTaskIds = new Set(mergedBaseTasks.map((task) => task.id));
+  const addedTasks = Object.values(taskDeltaState.upsertedTasks).filter(
+    (task) => mergedBaseTaskIds.has(task.id) === false,
+  );
+
+  return [...addedTasks, ...mergedBaseTasks];
+};
+
 interface TaskBoardProps {
   username: string;
 }
 
 export const TaskBoard = ({ username }: TaskBoardProps) => {
-  const queryClient = useQueryClient();
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [taskDeltaState, setTaskDeltaState] =
+    useState<TaskDeltaState>(emptyTaskDeltaState);
   const tasksState = useQuery<Task[], Error>({
     queryKey: TASKS_QUERY_KEY,
     queryFn: fetchTasks,
     retry: 0,
   });
+  const tasks = useMemo(
+    () => mergeTasks(tasksState.data ?? [], taskDeltaState),
+    [taskDeltaState, tasksState.data],
+  );
 
   useEffect(() => {
     const socket = io();
     const handleTasksChanged = (event: TaskChangeEvent) => {
       setFeedbackMessage(toFeedbackMessage(event));
-      queryClient.invalidateQueries(TASKS_QUERY_KEY);
+      setTaskDeltaState((currentTaskDeltaState) =>
+        applyTaskChange(currentTaskDeltaState, event),
+      );
     };
 
     socket.on(TASKS_CHANGED_EVENT, handleTasksChanged);
@@ -50,17 +117,15 @@ export const TaskBoard = ({ username }: TaskBoardProps) => {
       socket.off(TASKS_CHANGED_EVENT, handleTasksChanged);
       socket.disconnect();
     };
-  }, [queryClient]);
+  }, []);
 
   const groupedTasks = useMemo(
     () =>
       boardColumns.map((column) => ({
         ...column,
-        tasks: (tasksState.data ?? []).filter(
-          (task) => task.status === column.status,
-        ),
+        tasks: tasks.filter((task) => task.status === column.status),
       })),
-    [tasksState.data],
+    [tasks],
   );
 
   const loadErrorMessage = tasksState.error?.message ?? 'Failed to load tasks.';
@@ -76,19 +141,30 @@ export const TaskBoard = ({ username }: TaskBoardProps) => {
               {feedbackMessage}
             </Text>
           ) : null}
-          {tasksState.isFetching && tasksState.data ? (
+          {tasksState.isFetching && tasks.length > 0 ? (
             <Text role="status" color="#4a5568">
               Syncing tasks…
             </Text>
           ) : null}
         </Stack>
 
-        <CreateTaskForm username={username} onFeedback={setFeedbackMessage} />
+        <CreateTaskForm
+          username={username}
+          onFeedback={setFeedbackMessage}
+          onTaskCreated={(task) => {
+            setTaskDeltaState((currentTaskDeltaState) =>
+              applyTaskChange(currentTaskDeltaState, {
+                type: 'created',
+                task,
+              }),
+            );
+          }}
+        />
 
-        {tasksState.isLoading && tasksState.data === undefined ? (
+        {tasksState.isLoading && tasks.length === 0 ? (
           <Text role="status">Loading tasks…</Text>
         ) : null}
-        {tasksState.isError && tasksState.data === undefined ? (
+        {tasksState.isError && tasks.length === 0 ? (
           <Text role="alert" color="#c53030">
             {loadErrorMessage}
           </Text>
@@ -101,6 +177,22 @@ export const TaskBoard = ({ username }: TaskBoardProps) => {
               title={column.title}
               tasks={column.tasks}
               onFeedback={setFeedbackMessage}
+              onTaskUpdated={(task) => {
+                setTaskDeltaState((currentTaskDeltaState) =>
+                  applyTaskChange(currentTaskDeltaState, {
+                    type: 'updated',
+                    task,
+                  }),
+                );
+              }}
+              onTaskDeleted={(taskId) => {
+                setTaskDeltaState((currentTaskDeltaState) =>
+                  applyTaskChange(currentTaskDeltaState, {
+                    type: 'deleted',
+                    taskId,
+                  }),
+                );
+              }}
             />
           ))}
         </div>

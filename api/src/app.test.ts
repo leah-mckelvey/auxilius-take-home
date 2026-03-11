@@ -137,7 +137,7 @@ describe('createApp', () => {
     });
     expect(publishTaskEvent).toHaveBeenCalledWith({
       type: 'created',
-      taskId: 'task-123',
+      task: response.body,
     });
   });
 
@@ -225,7 +225,7 @@ describe('createApp', () => {
     expect(responseOrTimeout.status).toBe(201);
     expect(publishTaskEvent).toHaveBeenCalledWith({
       type: 'created',
-      taskId: responseOrTimeout.body.id,
+      task: responseOrTimeout.body,
     });
   });
 
@@ -267,7 +267,7 @@ describe('createApp', () => {
     });
     expect(publishTaskEvent).toHaveBeenCalledWith({
       type: 'updated',
-      taskId: 'task-123',
+      task: response.body,
     });
   });
 

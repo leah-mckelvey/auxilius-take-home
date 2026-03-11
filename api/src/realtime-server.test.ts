@@ -96,7 +96,18 @@ describe('createRealtimeServer', () => {
       const event = await eventPromise;
 
       expect(event.type).toBe('created');
-      expect(event.taskId).toBeTypeOf('string');
+
+      if (event.type !== 'created') {
+        throw new Error('Expected a created task event.');
+      }
+
+      expect(event.task).toMatchObject({
+        id: expect.any(String),
+        title: 'Smoke task',
+        description: 'created from the realtime server test',
+        status: 'todo',
+        createdBy: 'leah',
+      });
 
       const healthResponse = await fetch(`${baseUrl}/health`);
 

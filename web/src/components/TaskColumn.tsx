@@ -8,9 +8,17 @@ interface TaskColumnProps {
   title: string;
   tasks: Task[];
   onFeedback: (message: string) => void;
+  onTaskUpdated: (task: Task) => void;
+  onTaskDeleted: (taskId: string) => void;
 }
 
-export const TaskColumn = ({ title, tasks, onFeedback }: TaskColumnProps) => {
+export const TaskColumn = ({
+  title,
+  tasks,
+  onFeedback,
+  onTaskUpdated,
+  onTaskDeleted,
+}: TaskColumnProps) => {
   return (
     <Box p={4} style={panelStyle}>
       <Stack gap={3}>
@@ -21,7 +29,13 @@ export const TaskColumn = ({ title, tasks, onFeedback }: TaskColumnProps) => {
 
         <Stack gap={3}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onFeedback={onFeedback} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              onFeedback={onFeedback}
+              onTaskUpdated={onTaskUpdated}
+              onTaskDeleted={onTaskDeleted}
+            />
           ))}
         </Stack>
       </Stack>

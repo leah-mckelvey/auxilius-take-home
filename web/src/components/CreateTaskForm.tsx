@@ -5,10 +5,10 @@ import {
   type Task,
   type TaskStatus,
 } from '@auxilius-take-home/types';
-import { useMutation, useQueryClient } from '@ts-query/react';
+import { useMutation } from '@ts-query/react';
 import { Box, Button, Heading, Stack, Text } from '@ts-query/ui-react';
 
-import { createTask, TASKS_QUERY_KEY } from '../api/tasks';
+import { createTask } from '../api/tasks';
 import { inputStyle, panelStyle } from './task-board-styles';
 import { renderTaskStatusOptions } from './task-status-options';
 
@@ -21,24 +21,25 @@ const normalizeCreateDescription = (value: string) => {
 interface CreateTaskFormProps {
   username: string;
   onFeedback: (message: string) => void;
+  onTaskCreated: (task: Task) => void;
 }
 
 export const CreateTaskForm = ({
   username,
   onFeedback,
+  onTaskCreated,
 }: CreateTaskFormProps) => {
-  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('todo');
   const createTaskMutation = useMutation<Task, CreateTaskInput, Error>({
     mutationFn: createTask,
-    onSuccess: () => {
+    onSuccess: (task) => {
       setTitle('');
       setDescription('');
       setStatus('todo');
       onFeedback('Task created.');
-      queryClient.invalidateQueries(TASKS_QUERY_KEY);
+      onTaskCreated(task);
     },
     onError: (error) => {
       onFeedback(error.message);
