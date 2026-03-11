@@ -39,6 +39,11 @@ const buildTaskRepository = (
   ...overrides,
 });
 
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
 describe('createApp', () => {
   it('returns application health', async () => {
     const app = createApp({ taskRepository: buildTaskRepository() });
@@ -194,6 +199,34 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(201);
+  });
+
+  it('does not wait for task event publishing before returning a create response', async () => {
+    const publishTaskEvent = vi.fn(() => new Promise<void>(() => {}));
+    const app = createApp({
+      taskRepository: buildTaskRepository(),
+      publishTaskEvent,
+    });
+    const responseOrTimeout = await Promise.race([
+      request(app).post('/tasks').send({
+        title: 'Draft architecture',
+        status: 'todo',
+        createdBy: 'leah',
+      }),
+      wait(200).then(() => 'timed out' as const),
+    ]);
+
+    expect(responseOrTimeout).not.toBe('timed out');
+
+    if (responseOrTimeout === 'timed out') {
+      throw new Error('Create response waited on task event publication.');
+    }
+
+    expect(responseOrTimeout.status).toBe(201);
+    expect(publishTaskEvent).toHaveBeenCalledWith({
+      type: 'created',
+      taskId: responseOrTimeout.body.id,
+    });
   });
 
   it('updates a task from a valid request payload', async () => {

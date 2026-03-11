@@ -72,6 +72,33 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledWith('/tasks');
   });
 
+  it('falls back to the login form when stored username access fails', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+
+    renderApp();
+
+    expect(screen.getByText('Choose a username')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('lets a user continue when username persistence fails', async () => {
+    fetchMock.mockResolvedValueOnce(buildJsonResponse([]));
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+    const user = userEvent.setup();
+
+    renderApp();
+
+    await user.type(screen.getByLabelText('Username'), 'leah');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByText('Signed in as leah')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/tasks');
+  });
+
   it('reuses a stored username on future visits', async () => {
     globalThis.localStorage.setItem('auxilius.username', 'sam');
     fetchMock.mockResolvedValueOnce(buildJsonResponse([buildTask()]));

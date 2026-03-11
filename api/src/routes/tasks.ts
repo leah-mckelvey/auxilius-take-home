@@ -1,18 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import type { TaskChangeEvent } from '@auxilius-take-home/types';
 import { Router } from 'express';
 
 import {
   parseCreateTaskInput,
   toCreateTaskRecord,
 } from '../tasks/create-task-input';
+import {
+  publishTaskEventInBackground,
+  type TaskEventPublisher,
+} from '../tasks/task-event-publisher';
 import { parseUpdateTaskInput } from '../tasks/update-task-input';
 import type { TaskRepository } from '../tasks/task-repository';
-
-export type TaskEventPublisher = (
-  event: TaskChangeEvent,
-) => void | Promise<void>;
 
 interface CreateTasksRouterOptions {
   taskRepository: TaskRepository;
@@ -25,17 +24,6 @@ const updateTaskErrorMessage = 'Failed to update task.';
 const deleteTaskErrorMessage = 'Failed to delete task.';
 const taskNotFoundMessage = 'Task not found.';
 const noopTaskEventPublisher: TaskEventPublisher = () => undefined;
-
-const publishTaskEventSafely = async (
-  publishTaskEvent: TaskEventPublisher,
-  event: TaskChangeEvent,
-) => {
-  try {
-    await Promise.resolve(publishTaskEvent(event));
-  } catch {
-    // Real-time fanout failures should not undo a successful write.
-  }
-};
 
 export const createTasksRouter = ({
   taskRepository,
@@ -67,7 +55,7 @@ export const createTasksRouter = ({
         toCreateTaskRecord(parseResult.data, randomUUID()),
       );
 
-      await publishTaskEventSafely(publishTaskEvent, {
+      publishTaskEventInBackground(publishTaskEvent, {
         type: 'created',
         taskId: task.id,
       });
@@ -99,7 +87,7 @@ export const createTasksRouter = ({
         return;
       }
 
-      await publishTaskEventSafely(publishTaskEvent, {
+      publishTaskEventInBackground(publishTaskEvent, {
         type: 'updated',
         taskId: task.id,
       });
@@ -122,7 +110,7 @@ export const createTasksRouter = ({
         return;
       }
 
-      await publishTaskEventSafely(publishTaskEvent, {
+      publishTaskEventInBackground(publishTaskEvent, {
         type: 'deleted',
         taskId: request.params.taskId,
       });

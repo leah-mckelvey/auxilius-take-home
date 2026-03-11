@@ -2,7 +2,8 @@ import express from 'express';
 
 import { createDatabaseClient } from './db/client';
 import { healthRouter } from './routes/health';
-import { createTasksRouter, type TaskEventPublisher } from './routes/tasks';
+import { createTasksRouter } from './routes/tasks';
+import type { TaskEventPublisher } from './tasks/task-event-publisher';
 import {
   createPostgresTaskRepository,
   type TaskRepository,
