@@ -1,0 +1,3 @@
+[submodule "vendor/ts-query"]
+	path = vendor/ts-query
+	url = https://github.com/leah-mckelvey/ts-query

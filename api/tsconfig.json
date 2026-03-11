@@ -3,9 +3,12 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "rootDir": "src",
     "outDir": "dist",
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@auxilius-take-home/types": ["../types/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

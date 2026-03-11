@@ -3,6 +3,7 @@ import express from 'express';
 import { createDatabaseClient } from './db/client';
 import { healthRouter } from './routes/health';
 import { createTasksRouter } from './routes/tasks';
+import type { TaskEventPublisher } from './tasks/task-event-publisher';
 import {
   createPostgresTaskRepository,
   type TaskRepository,
@@ -10,6 +11,7 @@ import {
 
 interface CreateAppOptions {
   taskRepository?: TaskRepository;
+  publishTaskEvent?: TaskEventPublisher;
 }
 
 export const createApp = (options: CreateAppOptions = {}) => {
@@ -20,7 +22,17 @@ export const createApp = (options: CreateAppOptions = {}) => {
 
   app.use(express.json());
   app.use('/health', healthRouter);
-  app.use('/tasks', createTasksRouter({ taskRepository }));
+  app.use(
+    '/tasks',
+    createTasksRouter(
+      options.publishTaskEvent === undefined
+        ? { taskRepository }
+        : {
+            taskRepository,
+            publishTaskEvent: options.publishTaskEvent,
+          },
+    ),
+  );
 
   return app;
 };

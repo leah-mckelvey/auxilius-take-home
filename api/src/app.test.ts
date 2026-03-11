@@ -39,6 +39,11 @@ const buildTaskRepository = (
   ...overrides,
 });
 
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
 describe('createApp', () => {
   it('returns application health', async () => {
     const app = createApp({ taskRepository: buildTaskRepository() });
@@ -102,8 +107,10 @@ describe('createApp', () => {
       createdAt: '2026-03-10T00:00:00.000Z',
       updatedAt: '2026-03-10T00:00:00.000Z',
     } satisfies TaskListItem);
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({ createTask }),
+      publishTaskEvent,
     });
     const response = await request(app).post('/tasks').send({
       title: '  Draft architecture  ',
@@ -128,12 +135,18 @@ describe('createApp', () => {
       status: 'todo',
       createdBy: 'leah',
     });
+    expect(publishTaskEvent).toHaveBeenCalledWith({
+      type: 'created',
+      task: response.body,
+    });
   });
 
   it('rejects an invalid create-task payload', async () => {
     const createTask = vi.fn();
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({ createTask }),
+      publishTaskEvent,
     });
     const response = await request(app).post('/tasks').send({
       title: 'Draft architecture',
@@ -146,15 +159,18 @@ describe('createApp', () => {
       message: 'Status must be todo, in_progress, or done.',
     });
     expect(createTask).not.toHaveBeenCalled();
+    expect(publishTaskEvent).not.toHaveBeenCalled();
   });
 
   it('returns an internal server error when creating a task fails', async () => {
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({
         createTask: vi
           .fn()
           .mockRejectedValue(new Error('database unavailable')),
       }),
+      publishTaskEvent,
     });
     const response = await request(app).post('/tasks').send({
       title: 'Draft architecture',
@@ -165,6 +181,51 @@ describe('createApp', () => {
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
       message: 'Failed to create task.',
+    });
+    expect(publishTaskEvent).not.toHaveBeenCalled();
+  });
+
+  it('still creates a task when publishing the task event fails', async () => {
+    const app = createApp({
+      taskRepository: buildTaskRepository(),
+      publishTaskEvent: vi
+        .fn()
+        .mockRejectedValue(new Error('socket unavailable')),
+    });
+    const response = await request(app).post('/tasks').send({
+      title: 'Draft architecture',
+      status: 'todo',
+      createdBy: 'leah',
+    });
+
+    expect(response.status).toBe(201);
+  });
+
+  it('does not wait for task event publishing before returning a create response', async () => {
+    const publishTaskEvent = vi.fn(() => new Promise<void>(() => {}));
+    const app = createApp({
+      taskRepository: buildTaskRepository(),
+      publishTaskEvent,
+    });
+    const responseOrTimeout = await Promise.race([
+      request(app).post('/tasks').send({
+        title: 'Draft architecture',
+        status: 'todo',
+        createdBy: 'leah',
+      }),
+      wait(200).then(() => 'timed out' as const),
+    ]);
+
+    expect(responseOrTimeout).not.toBe('timed out');
+
+    if (responseOrTimeout === 'timed out') {
+      throw new Error('Create response waited on task event publication.');
+    }
+
+    expect(responseOrTimeout.status).toBe(201);
+    expect(publishTaskEvent).toHaveBeenCalledWith({
+      type: 'created',
+      task: responseOrTimeout.body,
     });
   });
 
@@ -178,8 +239,10 @@ describe('createApp', () => {
       createdAt: '2026-03-10T00:00:00.000Z',
       updatedAt: '2026-03-10T02:00:00.000Z',
     } satisfies TaskListItem);
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({ updateTask }),
+      publishTaskEvent,
     });
     const response = await request(app).patch('/tasks/task-123').send({
       title: '  Refine architecture  ',
@@ -202,12 +265,18 @@ describe('createApp', () => {
       description: null,
       status: 'in_progress',
     });
+    expect(publishTaskEvent).toHaveBeenCalledWith({
+      type: 'updated',
+      task: response.body,
+    });
   });
 
   it('rejects an invalid update-task payload', async () => {
     const updateTask = vi.fn();
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({ updateTask }),
+      publishTaskEvent,
     });
     const response = await request(app).patch('/tasks/task-123').send({});
 
@@ -216,13 +285,16 @@ describe('createApp', () => {
       message: 'At least one of title, description, or status is required.',
     });
     expect(updateTask).not.toHaveBeenCalled();
+    expect(publishTaskEvent).not.toHaveBeenCalled();
   });
 
   it('returns not found when updating a missing task', async () => {
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({
         updateTask: vi.fn().mockResolvedValue(null),
       }),
+      publishTaskEvent,
     });
     const response = await request(app).patch('/tasks/task-123').send({
       status: 'done',
@@ -232,15 +304,18 @@ describe('createApp', () => {
     expect(response.body).toEqual({
       message: 'Task not found.',
     });
+    expect(publishTaskEvent).not.toHaveBeenCalled();
   });
 
   it('returns an internal server error when updating a task fails', async () => {
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({
         updateTask: vi
           .fn()
           .mockRejectedValue(new Error('database unavailable')),
       }),
+      publishTaskEvent,
     });
     const response = await request(app).patch('/tasks/task-123').send({
       status: 'done',
@@ -250,25 +325,34 @@ describe('createApp', () => {
     expect(response.body).toEqual({
       message: 'Failed to update task.',
     });
+    expect(publishTaskEvent).not.toHaveBeenCalled();
   });
 
   it('deletes an existing task', async () => {
     const deleteTask = vi.fn().mockResolvedValue(true);
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({ deleteTask }),
+      publishTaskEvent,
     });
     const response = await request(app).delete('/tasks/task-123');
 
     expect(response.status).toBe(204);
     expect(response.text).toBe('');
     expect(deleteTask).toHaveBeenCalledWith('task-123');
+    expect(publishTaskEvent).toHaveBeenCalledWith({
+      type: 'deleted',
+      taskId: 'task-123',
+    });
   });
 
   it('returns not found when deleting a missing task', async () => {
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({
         deleteTask: vi.fn().mockResolvedValue(false),
       }),
+      publishTaskEvent,
     });
     const response = await request(app).delete('/tasks/task-123');
 
@@ -276,15 +360,18 @@ describe('createApp', () => {
     expect(response.body).toEqual({
       message: 'Task not found.',
     });
+    expect(publishTaskEvent).not.toHaveBeenCalled();
   });
 
   it('returns an internal server error when deleting a task fails', async () => {
+    const publishTaskEvent = vi.fn();
     const app = createApp({
       taskRepository: buildTaskRepository({
         deleteTask: vi
           .fn()
           .mockRejectedValue(new Error('database unavailable')),
       }),
+      publishTaskEvent,
     });
     const response = await request(app).delete('/tasks/task-123');
 
@@ -292,5 +379,6 @@ describe('createApp', () => {
     expect(response.body).toEqual({
       message: 'Failed to delete task.',
     });
+    expect(publishTaskEvent).not.toHaveBeenCalled();
   });
 });

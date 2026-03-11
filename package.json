@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "description": "A collaborative task board where multiple users can create, update, and delete tasks in real time. The app uses a React frontend, an Express API, PostgreSQL for persistence, and Socket.IO for live updates across connected clients.",
   "private": true,
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
   "workspaces": [
     "web",
     "api",
     "types"
   ],
   "scripts": {
+    "dev": "bash -c 'set -a; [ -f .env ] && . ./.env; set +a; trap \"kill 0\" EXIT INT TERM; npm run dev -w @auxilius-take-home/api & npm run dev -w @auxilius-take-home/web -- --host 0.0.0.0 & wait'",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier . --check",

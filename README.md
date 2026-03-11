@@ -4,23 +4,58 @@ A collaborative task board where multiple users can create, update, and delete t
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: one-command local dev
 
-- Docker
-- Docker Compose
+#### Prerequisites
 
-### Run the application
+- Node 22
+- PostgreSQL 16
+- A running local PostgreSQL server
+
+#### Run the application
+
+1. Install dependencies: `npm install`
+2. Copy environment variables: `cp .env.example .env`
+3. If your local PostgreSQL auth does not use `postgres:postgres`, update `DATABASE_URL` in `.env`
+   - On macOS/Homebrew, the working default is often: `postgres://$(whoami)@localhost:5432/auxilius_take_home`
+4. Start PostgreSQL if needed
+   - Example (Homebrew): `brew services start postgresql@16`
+5. Create the local database: `createdb auxilius_take_home`
+6. Export the environment variables into your shell: `set -a; . ./.env; set +a`
+7. Initialize the schema: `psql "$DATABASE_URL" -f api/db/init.sql`
+8. Start the API and frontend together: `npm run dev`
+9. Open the frontend in your browser at `http://localhost:5173`
+10. Enter a username on first visit to begin using the board
+
+### Option 2: Docker Compose
+
+#### Prerequisites
+
+- Docker Desktop / Docker Engine with Compose support
+- On Apple Silicon Macs, the Apple Silicon Docker Desktop build
+
+#### Run the application
 
 1. Copy environment variables: `cp .env.example .env`
-2. Start the full stack: `docker compose up --build`
-3. Open the frontend in your browser at `http://localhost:5173`
-4. Enter a username on first visit to begin using the board
+2. Make sure ports `3000`, `5173`, and `5432` are not already in use by a local dev server or another Postgres instance
+3. Start the full stack: `docker compose up --build -d`
+4. Open the frontend in your browser at `http://localhost:5173`
+5. Enter a username on first visit to begin using the board
+6. When finished, stop the stack with: `docker compose down`
 
-### Verify real-time sync
+### Troubleshooting
+
+- **`address already in use` on port `3000`, `5173`, or `5432`:** stop the local dev server or other service currently using that port, then rerun the command
+- **Local Postgres connection/auth errors:** update `DATABASE_URL` in `.env` to match your local PostgreSQL user/password setup
+- **Apple Silicon Docker issue:** if Docker Desktop reports that the Intel build is installed, replace it with the Apple Silicon build before using the Docker path
+
+### Manual smoke pass
 
 1. Open the app in two browser tabs or windows
-2. Create, edit, move, or delete a task in one tab
-3. Confirm the other tab updates immediately without refreshing
+2. Log in with any username in both tabs
+3. Create a task in one tab and confirm it appears in the other
+4. Edit the title, description, and status and confirm the other tab updates
+5. Delete the task and confirm it disappears in both tabs without refreshing
 
 ## Features Implemented
 
@@ -93,7 +128,7 @@ This design prioritizes correctness and simplicity over more advanced collaborat
 - `web/` — React frontend
 - `api/` — Express backend
 - `types/` — shared TypeScript contracts for API and socket payloads
-- `db/` — SQL schema / initialization scripts
+- `api/db/` — SQL schema / initialization scripts
 - `docker-compose.yml` — local infrastructure
 - `.env.example` — required environment variables
 
@@ -194,6 +229,6 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 
 ## Notes for Reviewers
 
-- The project is designed to be run locally with Docker Compose
+- The project can be run either with local PostgreSQL + `npm run dev` or with Docker Compose
 - The implementation intentionally prioritizes working real-time collaboration, clear boundaries, and maintainable code over advanced features
 - Commit history is intentionally kept small and reviewable to show the construction of the application in discrete steps

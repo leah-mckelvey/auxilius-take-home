@@ -6,11 +6,16 @@ import {
   parseCreateTaskInput,
   toCreateTaskRecord,
 } from '../tasks/create-task-input';
+import {
+  publishTaskEventInBackground,
+  type TaskEventPublisher,
+} from '../tasks/task-event-publisher';
 import { parseUpdateTaskInput } from '../tasks/update-task-input';
 import type { TaskRepository } from '../tasks/task-repository';
 
 interface CreateTasksRouterOptions {
   taskRepository: TaskRepository;
+  publishTaskEvent?: TaskEventPublisher;
 }
 
 const listTasksErrorMessage = 'Failed to load tasks.';
@@ -18,9 +23,11 @@ const createTaskErrorMessage = 'Failed to create task.';
 const updateTaskErrorMessage = 'Failed to update task.';
 const deleteTaskErrorMessage = 'Failed to delete task.';
 const taskNotFoundMessage = 'Task not found.';
+const noopTaskEventPublisher: TaskEventPublisher = () => undefined;
 
 export const createTasksRouter = ({
   taskRepository,
+  publishTaskEvent = noopTaskEventPublisher,
 }: CreateTasksRouterOptions) => {
   const tasksRouter = Router();
 
@@ -47,6 +54,11 @@ export const createTasksRouter = ({
       const task = await taskRepository.createTask(
         toCreateTaskRecord(parseResult.data, randomUUID()),
       );
+
+      publishTaskEventInBackground(publishTaskEvent, {
+        type: 'created',
+        task,
+      });
 
       response.status(201).json(task);
     } catch {
@@ -75,6 +87,11 @@ export const createTasksRouter = ({
         return;
       }
 
+      publishTaskEventInBackground(publishTaskEvent, {
+        type: 'updated',
+        task,
+      });
+
       response.status(200).json(task);
     } catch {
       response.status(500).json({ message: updateTaskErrorMessage });
@@ -92,6 +109,11 @@ export const createTasksRouter = ({
 
         return;
       }
+
+      publishTaskEventInBackground(publishTaskEvent, {
+        type: 'deleted',
+        taskId: request.params.taskId,
+      });
 
       response.status(204).send();
     } catch {
