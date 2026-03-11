@@ -1,0 +1,25 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "types": [
+      "node",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ],
+    "paths": {
+      "@auxilius-take-home/types": ["../types/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.d.ts",
+    "vite.config.ts",
+    "../types/src/**/*.ts"
+  ]
+}

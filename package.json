@@ -9,6 +9,7 @@
     "types"
   ],
   "scripts": {
+    "dev": "bash -c 'set -a; [ -f .env ] && . ./.env; set +a; trap \"kill 0\" EXIT INT TERM; npm run dev -w @auxilius-take-home/api & npm run dev -w @auxilius-take-home/web -- --host 0.0.0.0 & wait'",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier . --check",

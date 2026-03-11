@@ -4,14 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run build -w @auxilius-take-home/types",
     "dev": "tsx watch src/server.ts",
+    "prestart": "npm run build -w @auxilius-take-home/types",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
+    "pretest": "npm run build -w @auxilius-take-home/types",
     "test": "vitest run"
   },
   "dependencies": {
     "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
