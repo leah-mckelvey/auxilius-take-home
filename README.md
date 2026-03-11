@@ -4,6 +4,8 @@ A collaborative task board where multiple users can create, update, and delete t
 
 ## Quick Start
 
+> If the repo was cloned without submodules, run `git submodule update --init --recursive` before installing dependencies. The frontend resolves the vendored `ts-query` packages from `vendor/ts-query`.
+
 ### Option 1: one-command local dev
 
 #### Prerequisites
@@ -67,7 +69,7 @@ A collaborative task board where multiple users can create, update, and delete t
 - Real-time updates across connected browser tabs/windows
 - Basic visual feedback when tasks change
 - Shared TypeScript contracts between frontend and backend
-- Unit test coverage for frontend and backend logic
+- Automated test coverage for backend logic, frontend helpers/API client code, and one focused frontend integration smoke test
 - `tsc`, ESLint, and Prettier included in the development workflow
 
 ## Tech Stack
@@ -83,7 +85,7 @@ A collaborative task board where multiple users can create, update, and delete t
 
 - **Express + TypeScript** for a lightweight API server and single-language stack
 - **Socket.IO** to broadcast task changes after successful writes
-- **Zod** for runtime validation of API request payloads
+- **Custom runtime validation helpers** for API request payloads
 
 ### Database / Tooling / Infra
 
@@ -94,7 +96,9 @@ A collaborative task board where multiple users can create, update, and delete t
 - **TypeScript compiler (`tsc --noEmit`)** as a type-safety gate
 - **Docker Compose** to run the frontend, backend, and database together
 
-## Architecture Overview
+## Architecture and Code Organization
+
+### Runtime architecture
 
 - The **React frontend** renders the task board UI, performs CRUD operations through the REST API, and subscribes to live updates through Socket.IO.
 - The **Express backend** exposes the required task endpoints, validates input, persists changes to PostgreSQL, and broadcasts task events after successful database writes.
@@ -102,6 +106,18 @@ A collaborative task board where multiple users can create, update, and delete t
 - The **`types/` folder** contains shared TypeScript contracts used by both the frontend and backend for API payloads and real-time event shapes.
 - The frontend uses a small query/cache layer for UI data management; the backend intentionally does **not** add a cache because consistency and simplicity matter more than read optimization for this scope.
 - Real-time behavior uses **REST for writes** and **Socket.IO for fanout** so persistence logic stays centralized.
+
+### How the code is organized
+
+- `web/src/App.tsx` is the top-level frontend boundary that switches between the login flow and the task board.
+- `web/src/components/` contains the UI building blocks for login, task creation, task editing, and the three board columns.
+- `web/src/api/tasks.ts` is the browser-side API client for task CRUD requests.
+- `web/src/query-client.ts` creates the frontend query/cache client used by the app.
+- `api/src/app.ts` composes the Express application and injects infrastructure dependencies.
+- `api/src/routes/` contains the HTTP route handlers, while `api/src/tasks/` contains task-specific validation, repository, and event-publishing helpers.
+- `api/src/realtime-server.ts` wraps the Express app in an HTTP server and attaches Socket.IO fanout.
+- `types/src/` defines the shared REST and realtime contracts consumed by both the frontend and backend.
+- `vendor/ts-query/` is a vendored git submodule that provides the lightweight query and UI primitives used by the frontend.
 
 ### Architecture Diagram
 
@@ -128,6 +144,7 @@ This design prioritizes correctness and simplicity over more advanced collaborat
 - `web/` — React frontend
 - `api/` — Express backend
 - `types/` — shared TypeScript contracts for API and socket payloads
+- `vendor/ts-query/` — vendored query/cache and UI primitives pulled in as a git submodule
 - `api/db/` — SQL schema / initialization scripts
 - `docker-compose.yml` — local infrastructure
 - `.env.example` — required environment variables
@@ -183,7 +200,8 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - Type-checking with `tsc --noEmit`
 - Linting with ESLint
 - Formatting with Prettier
-- Unit tests for frontend and backend logic
+- Unit tests for backend logic and frontend helper/API code
+- One focused frontend integration test for the login + board happy path
 - Small, reviewable commits intended to keep each change understandable in isolation
 
 ## Approximate Time Log
@@ -214,7 +232,7 @@ A small shared `types/` folder is used to keep frontend and backend request, res
 - No advanced filtering or search
 - Real-time sync assumes last-write-wins behavior
 - Styling is intentionally functional rather than polished
-- Test coverage is focused on core logic and touched UI paths rather than full end-to-end coverage
+- Test coverage still stops short of full browser end-to-end coverage across multiple live sessions
 
 ## What I Would Improve With More Time
 
