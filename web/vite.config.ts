@@ -19,15 +19,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@auxilius-take-home/types': resolveFromRepoRoot('types/src/index.ts'),
-      '@ts-query/core': resolveFromRepoRoot(
-        'vendor/ts-query/packages/core/src/index.ts',
-      ),
-      '@ts-query/react': resolveFromRepoRoot(
-        'vendor/ts-query/packages/react/src/index.ts',
-      ),
-      '@ts-query/ui-react': resolveFromRepoRoot(
-        'vendor/ts-query/packages/ui-react/src/index.ts',
-      ),
     },
   },
   server: {
